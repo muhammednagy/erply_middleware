@@ -23,18 +23,21 @@ type status struct{
 }
 type record struct{
 	SessionKey string `json:"sessionKey"`
+	SessionLength int `json:"sessionLength"`
 }
 
 func main() {
 	if os.Getenv("REDIS_ADDRESS") == "" ||
 		os.Getenv("ERPLY_USERNAME") == "" ||
 		os.Getenv("ERPLY_PASSWORD") == "" ||
+		os.Getenv("ADDRESS") == "" ||
 		os.Getenv("ERPLY_CLIENT") == "" {
 		panic("Missing variables!")
 	}
 
 	e := echo.New()
 	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
 
 	link := "https://" + os.Getenv("ERPLY_CLIENT") + ".erply.com/api/"
 	redisClient := redis.NewClient(&redis.Options{
@@ -43,15 +46,16 @@ func main() {
 		DB:       0,  // use default DB
 	})
 
-	updateSessionKey(link, *redisClient)
-
 	e.POST("/", func(c echo.Context) error {
 		sessionKey, err := redisClient.Get("sessionKey").Result()
 		if err != nil {
-			updateSessionKey(link, *redisClient)
+			updateSessionKey(link, *redisClient, c)
 			sessionKey, _ = redisClient.Get("sessionKey").Result()
 		}
 		params, _ := c.FormParams()
+		if params.Get("request") == "" {
+		  return c.String(422, "Unprocessable Entity: required request paramter is missing!")
+		}
 		params.Set("clientCode", os.Getenv("ERPLY_CLIENT"))
 		params.Set("sessionKey", sessionKey)
 		resp, err := http.PostForm(link,  params)
@@ -59,15 +63,14 @@ func main() {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
 		bodyString := string(bodyBytes)
 		if err != nil {
-			panic(err)
+			c.Logger().Error(err)
 		}
-
 		return c.String(200,bodyString)
 	})
-	e.Logger.Fatal(e.Start("127.0.0.1:1323"))
+	e.Logger.Fatal(e.Start(os.Getenv("ADDRESS")))
 }
 
-func updateSessionKey(link string, redisClient redis.Client) {
+func updateSessionKey(link string, redisClient redis.Client, c echo.Context) {
 	params := url.Values{}
 	params.Set("clientCode", os.Getenv("ERPLY_CLIENT"))
 	params.Set("username", os.Getenv("ERPLY_USERNAME"))
@@ -76,7 +79,7 @@ func updateSessionKey(link string, redisClient redis.Client) {
 
 	resp, err := http.PostForm(link,  params)
 	if err != nil {
-		panic(err)
+		c.Logger().Fatal(err)
 	}
 
 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
@@ -85,8 +88,13 @@ func updateSessionKey(link string, redisClient redis.Client) {
 	err = json.Unmarshal(bodyBytes, &responseObject)
 
 	if responseObject.Status.ResponseStatus != "ok" || err != nil {
-		panic(responseObject.Status)
+		c.Logger().Fatal(responseObject.Status)
 	}
 
-	redisClient.Set("sessionKey",responseObject.Records[0].SessionKey, 3599 * time.Second )
+	err = redisClient.Set("sessionKey",
+	  responseObject.Records[0].SessionKey,
+	  time.Duration(responseObject.Records[0].SessionLength - 1) * time.Second).Err() // decreasing by one second to be cautious
+	if err != nil {
+		c.Logger().Fatal(err)
+	}
 }
