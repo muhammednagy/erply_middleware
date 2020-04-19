@@ -1,0 +1,30 @@
+openapi: 3.0.0
+info:
+  description: Erply customer API middleware
+  version: v1
+  title: Erply middleware
+  contact:
+    email: me@muhnagy.com
+paths:
+  '/':
+    post:
+      summary: Make a request
+      description: Send an authenticated request to Erply API
+      requestBody:
+        description: Paramterss needed to execute the request you want
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request:
+                  type: string
+
+      responses:
+        '200':
+          description: Successfully processed request
+        '422':
+          description: Unprocessable Entity required request paramter is missing!
+        '500':
+          description: Internal server error
