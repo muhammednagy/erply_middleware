@@ -18,7 +18,9 @@ ERPLY_PASSWORD=b645636973dbf4cd985dB
 ADDRESS=localhost:1232
 ERPLY_CLIENT=506460
 ```
-you can also add `REDIS_PASSWORD`
+You can also add `REDIS_PASSWORD`
+
+Variables could also be passed as cli parameters if you would like run with  ```-h```  to see a list of possible parameters
 
 ## Building
 To build: ```make build```  
