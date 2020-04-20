@@ -1,17 +1,13 @@
 package main
 
 import (
-  "encoding/json"
+  "erply-middleware/handlers"
+  "erply-middleware/models"
   "flag"
-  "github.com/go-redis/redis/v7"
   "github.com/labstack/echo/v4"
   "github.com/labstack/echo/v4/middleware"
   log "github.com/sirupsen/logrus"
-  "io/ioutil"
-  "net/http"
-  "net/url"
   "os"
-  "time"
 )
 
 
@@ -30,21 +26,7 @@ var (
   version   string
 )
 
-type Response struct {
-  Records []record `json:"records"`
-  Status  status   `json:"status"`
-}
-
-type status struct {
-  ResponseStatus string `json:"responseStatus"`
-  ErrorCode      int    `json:"errorCode"`
-}
-type record struct {
-  SessionKey    string `json:"sessionKey"`
-  SessionLength int    `json:"sessionLength"`
-}
-
-func flagParse() {
+func flagParse() models.Config {
   flag.Parse()
   if *showVersion {
 	log.Info("Build:", version, buildTime)
@@ -58,85 +40,28 @@ func flagParse() {
 	  *erplyClient == "" {
     	log.Fatal("Some parameters are missing!")
   }
-}
-
-func MainHandler(ctx echo.Context) error {
-  link := "https://" + *erplyClient + ".erply.com/api/"
-  redisClient := redis.NewClient(&redis.Options{
-	Addr:     *redisAddress,
-	Password: *redisPassword,
-	DB:       0, // use default DB
-  })
-
-  sessionKey, err := redisClient.Get("sessionKey").Result()
-  if err != nil {
-	updateSessionKey(link, *redisClient)
-	sessionKey, err = redisClient.Get("sessionKey").Result()
-	if err != nil {
-	  log.Fatal(err)
-	}
+  return models.Config{
+    Client: *erplyClient,
+    Username: *username,
+    Password: *password,
+    Link: "https://" + *erplyClient + ".erply.com/api/",
+    RedisAddress: *redisAddress,
+    RedisPassword: *redisPassword,
   }
-
-  params, _ := ctx.FormParams()
-  if params.Get("request") == "" {
-	return ctx.String(422, "Unprocessable Entity: required request paramter is missing!")
-  }
-  params.Set("clientCode", *erplyClient)
-  params.Set("sessionKey", sessionKey)
-  resp, err := http.PostForm(link, params)
-  if err != nil {
-	log.Error(err)
-  }
-
-  defer resp.Body.Close()
-  bodyBytes, err := ioutil.ReadAll(resp.Body)
-  if err != nil {
-	log.Error(err)
-  }
-  bodyString := string(bodyBytes)
-
-  return ctx.String(200, bodyString)
 }
 
 func main() {
   log.SetFormatter(&log.TextFormatter{
 	FullTimestamp: true,
   })
-  flagParse()
-
+  config := flagParse()
   e := echo.New()
   e.Use(middleware.Logger())
   e.Use(middleware.Recover())
-  e.POST("/", MainHandler)
+  e.POST("/", func(ctx echo.Context) error {
+	return handlers.MainHandler(ctx, config)
+  })
   log.Info("Build: " + version + " " + buildTime)
-  log.Fatal(e.Start(os.Getenv("ADDRESS")))
+  log.Fatal(e.Start(*address))
 }
 
-func updateSessionKey(link string, redisClient redis.Client) {
-  params := url.Values{}
-  params.Set("clientCode", os.Getenv("ERPLY_CLIENT"))
-  params.Set("username", os.Getenv("ERPLY_USERNAME"))
-  params.Set("password", os.Getenv("ERPLY_PASSWORD"))
-  params.Set("request", "verifyUser")
-
-  resp, err := http.PostForm(link, params)
-  if err != nil {
-	log.Fatal(err)
-  }
-
-  bodyBytes, _ := ioutil.ReadAll(resp.Body)
-  defer resp.Body.Close()
-  responseObject := Response{}
-  err = json.Unmarshal(bodyBytes, &responseObject)
-
-  if responseObject.Status.ResponseStatus != "ok" || err != nil {
-	log.Fatal(responseObject.Status)
-  }
-
-  err = redisClient.Set("sessionKey",
-	responseObject.Records[0].SessionKey,
-	time.Duration(responseObject.Records[0].SessionLength-1)*time.Second).Err() // decreasing by one second to be cautious
-  if err != nil {
-	log.Fatal(err)
-  }
-}
