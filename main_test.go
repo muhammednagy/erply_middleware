@@ -14,7 +14,7 @@ import (
 
 
 func TestMainHandlerWithRequest(t *testing.T) {
-  configuration := config.FlagParse(buildTime, version)
+  configuration := config.FlagParse()
   e := echo.New()
   form := url.Values{}
   form.Set("request", `getProducts`)
@@ -31,7 +31,7 @@ func TestMainHandlerWithRequest(t *testing.T) {
 }
 
 func TestMainHandlerWithoutRequest(t *testing.T) {
-  configuration := config.FlagParse(buildTime, version)
+  configuration := config.FlagParse()
   e := echo.New()
   req, _ := http.NewRequest(http.MethodPost, "/", nil)
   rec := httptest.NewRecorder()

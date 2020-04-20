@@ -16,8 +16,12 @@ var (
   password     = flag.String("password", os.Getenv("ERPLY_PASSWORD"), "Erply password")
   address      = flag.String("address", os.Getenv("ADDRESS"), "Server address and port written like this 127.0.0.1:1232")
 )
+var (
+  buildTime string
+  version   string
+)
 
-func FlagParse(buildTime string, version string) models.Config {
+func FlagParse() models.Config {
 
   flag.Parse()
   if *showVersion {

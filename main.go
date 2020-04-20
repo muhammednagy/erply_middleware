@@ -8,16 +8,11 @@ import (
   log "github.com/sirupsen/logrus"
 )
 
-var (
-  buildTime string
-  version   string
-)
-
 func main() {
   log.SetFormatter(&log.TextFormatter{
 	FullTimestamp: true,
   })
-  configuration := config.FlagParse(buildTime, version)
+  configuration := config.FlagParse()
   e := echo.New()
   e.Use(middleware.Logger())
   e.Use(middleware.Recover())

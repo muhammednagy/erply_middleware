@@ -6,7 +6,7 @@ BUILDTIME=`date "+%F %T%Z"`
 VERSION=`git describe --tags`
 
 build:
-	GOOS=$(PLATFORM) GOARCH=$(ARCHITECTURE) go build -ldflags="-X 'main.buildTime=$(BUILDTIME)' -X 'main.version=$(VERSION)' -s -w -extldflags '-static'" -o bin/erply-middleware $(FILES)
+	GOOS=$(PLATFORM) GOARCH=$(ARCHITECTURE) go build -ldflags="-X 'erply-middleware/config.buildTime=$(BUILDTIME)' -X 'erply-middleware/config.version=$(VERSION)' -s -w -extldflags '-static'" -o bin/erply-middleware $(FILES)
 
 run:
 	go run $(FILES)
