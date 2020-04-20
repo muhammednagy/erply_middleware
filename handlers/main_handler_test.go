@@ -1,8 +1,7 @@
-package main
+package handlers
 
 import (
   "erply-middleware/config"
-  "erply-middleware/handlers"
   "github.com/labstack/echo/v4"
   "github.com/stretchr/testify/assert"
   "net/http"
@@ -25,7 +24,7 @@ func TestMainHandlerWithRequest(t *testing.T) {
   rec := httptest.NewRecorder()
   c := e.NewContext(req, rec)
 
-  if assert.NoError(t, handlers.MainHandler(c, configuration)) {
+  if assert.NoError(t, MainHandler(c, configuration)) {
 	assert.Equal(t, http.StatusOK, rec.Code)
   }
 }
@@ -37,7 +36,7 @@ func TestMainHandlerWithoutRequest(t *testing.T) {
   rec := httptest.NewRecorder()
   c := e.NewContext(req, rec)
 
-  if assert.NoError(t, handlers.MainHandler(c, configuration)) {
-    assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+  if assert.NoError(t, MainHandler(c, configuration)) {
+	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
   }
 }
