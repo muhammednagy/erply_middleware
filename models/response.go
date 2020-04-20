@@ -14,12 +14,3 @@ type record struct {
   SessionKey    string `json:"sessionKey"`
   SessionLength int    `json:"sessionLength"`
 }
-// Config needed for handlers
-type Config struct {
-  Link string
-  Client string
-  Username string
-  Password string
-  RedisAddress string
-  RedisPassword string
-}

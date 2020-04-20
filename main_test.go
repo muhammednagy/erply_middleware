@@ -1,6 +1,7 @@
 package main
 
 import (
+  "erply-middleware/config"
   "erply-middleware/handlers"
   "github.com/labstack/echo/v4"
   "github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 
 func TestMainHandlerWithRequest(t *testing.T) {
-  config := flagParse()
+  configuration := config.FlagParse(buildTime, version)
   e := echo.New()
   form := url.Values{}
   form.Set("request", `getProducts`)
@@ -24,19 +25,19 @@ func TestMainHandlerWithRequest(t *testing.T) {
   rec := httptest.NewRecorder()
   c := e.NewContext(req, rec)
 
-  if assert.NoError(t, handlers.MainHandler(c, config)) {
+  if assert.NoError(t, handlers.MainHandler(c, configuration)) {
 	assert.Equal(t, http.StatusOK, rec.Code)
   }
 }
 
 func TestMainHandlerWithoutRequest(t *testing.T) {
-  config := flagParse()
+  configuration := config.FlagParse(buildTime, version)
   e := echo.New()
   req, _ := http.NewRequest(http.MethodPost, "/", nil)
   rec := httptest.NewRecorder()
   c := e.NewContext(req, rec)
 
-  if assert.NoError(t, handlers.MainHandler(c, config)) {
+  if assert.NoError(t, handlers.MainHandler(c, configuration)) {
     assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
   }
 }
