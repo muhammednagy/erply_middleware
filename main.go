@@ -32,6 +32,45 @@ type record struct {
   SessionLength int    `json:"sessionLength"`
 }
 
+func MainHandler(c echo.Context) error {
+  link := "https://" + os.Getenv("ERPLY_CLIENT") + ".erply.com/api/"
+  redisClient := redis.NewClient(&redis.Options{
+	Addr:     os.Getenv("REDIS_ADDRESS"),
+	Password: os.Getenv("REDIS_PASSWORD"),
+	DB:       0, // use default DB
+  })
+
+  sessionKey, err := redisClient.Get("sessionKey").Result()
+  if err != nil {
+	updateSessionKey(link, *redisClient, c)
+	sessionKey, err = redisClient.Get("sessionKey").Result()
+	if err != nil {
+	  c.Logger().Fatal(err)
+	}
+  }
+
+  params, _ := c.FormParams()
+  if params.Get("request") == "" {
+	return c.String(422, "Unprocessable Entity: required request paramter is missing!")
+  }
+  params.Set("clientCode", os.Getenv("ERPLY_CLIENT"))
+  params.Set("sessionKey", sessionKey)
+  resp, err := http.PostForm(link, params)
+  if err != nil {
+	c.Logger().Error(err)
+  }
+
+  defer resp.Body.Close()
+  bodyBytes, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+	c.Logger().Error(err)
+  }
+  bodyString := string(bodyBytes)
+
+
+  return c.String(200, bodyString)
+}
+
 func main() {
   if os.Getenv("REDIS_ADDRESS") == "" ||
 	  os.Getenv("ERPLY_USERNAME") == "" ||
@@ -44,35 +83,7 @@ func main() {
   e := echo.New()
   e.Use(middleware.Logger())
   e.Use(middleware.Recover())
-
-  link := "https://" + os.Getenv("ERPLY_CLIENT") + ".erply.com/api/"
-  redisClient := redis.NewClient(&redis.Options{
-	Addr:     os.Getenv("REDIS_ADDRESS"),
-	Password: os.Getenv("REDIS_PASSWORD"),
-	DB:       0, // use default DB
-  })
-
-  e.POST("/", func(c echo.Context) error {
-	sessionKey, err := redisClient.Get("sessionKey").Result()
-	if err != nil {
-	  updateSessionKey(link, *redisClient, c)
-	  sessionKey, _ = redisClient.Get("sessionKey").Result()
-	}
-	params, _ := c.FormParams()
-	if params.Get("request") == "" {
-	  return c.String(422, "Unprocessable Entity: required request paramter is missing!")
-	}
-	params.Set("clientCode", os.Getenv("ERPLY_CLIENT"))
-	params.Set("sessionKey", sessionKey)
-	resp, err := http.PostForm(link, params)
-	defer resp.Body.Close()
-	bodyBytes, _ := ioutil.ReadAll(resp.Body)
-	bodyString := string(bodyBytes)
-	if err != nil {
-	  c.Logger().Error(err)
-	}
-	return c.String(200, bodyString)
-  })
+  e.POST("/", MainHandler)
   fmt.Println("Build: " + version + " " + buildTime)
   e.Logger.Fatal(e.Start(os.Getenv("ADDRESS")))
 }

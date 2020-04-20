@@ -14,3 +14,8 @@ run:
 clean:
 	rm -rf bin
 
+test:
+	go test ./...
+
+cover:
+	go test ./... -coverprofile cover.out
